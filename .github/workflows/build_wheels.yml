@@ -16,10 +16,8 @@ jobs:
         include:
           - os: macos-14
             cibw_arch: arm64
-            vtk_url: https://github.com/Kitware/VTK/releases/download/v9.3.0/VTK-9.3.0-macos-arm64.tar.gz
           - os: macos-13
             cibw_arch: x86_64
-            vtk_url: https://github.com/Kitware/VTK/releases/download/v9.3.0/VTK-9.3.0-macos-x86_64.tar.gz
 
     steps:
       - name: Checkout code
@@ -31,13 +29,8 @@ jobs:
           CIBW_ARCHS: ${{ matrix.cibw_arch }}
           CIBW_BUILD: "cp39-* cp310-* cp311-* cp312-*"
           CIBW_SKIP: "pp* *musllinux*"
-          CIBW_BEFORE_ALL_MACOS: >
-            curl -L --fail --retry 5 --retry-delay 1 -o vtk_sdk.tar.gz ${{ matrix.vtk_url }} &&
-            mkdir -p /tmp/vtk_sdk &&
-            tar -xzf vtk_sdk.tar.gz -C /tmp/vtk_sdk --strip-components=1
           CIBW_ENVIRONMENT_MACOS: >
-            VTK_DIR=/tmp/vtk_sdk/lib/cmake/vtk-9.3
-            CMAKE_ARGS="-DUSE_SYSTEM_VTK=ON -DVTK_DIR=/tmp/vtk_sdk/lib/cmake/vtk-9.3"
+            CMAKE_ARGS="-DUSE_SYSTEM_VTK=ON"
 
       - name: Upload wheels artifact
         uses: actions/upload-artifact@v4

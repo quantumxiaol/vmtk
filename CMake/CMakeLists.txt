@@ -4,6 +4,7 @@ set(vtkMacroKitPythonWrap.cmake_expected_hash "82abf4ea2c6f153c61dd47bf6f3baf924
 set(vtkWrapHierarchy.cmake_expected_hash "c9343c54675e8bbde8ceaedf99a3226546b5f7d4cf7d5dac3e33db9093b536f2")
 set(vtkWrapPython.cmake_expected_hash "ac22023ff10c58da33c2a6633fc90fde9863f12bb0f90dd0da51e18796137db3")
 set(vtkWrapperInit.data.in_expected_hash "3e840679603eb4a0d425c1244828729cb271f33a081c5ac2e0547aa747bbec5d")
+option(VMTK_ALLOW_CMAKE_DOWNLOADS "Allow downloading helper CMake files at configure time." OFF)
 
 foreach(filename IN ITEMS
   vtkMacroKitPythonWrap.cmake
@@ -38,12 +39,24 @@ foreach(filename IN ITEMS
     continue()
   endif()
 
-  if(NOT EXISTS "${dest_file}")
-    file(DOWNLOAD "${url}" "${dest_file}" EXPECTED_HASH SHA256="${expected_hash}")
-  else()
+  if(EXISTS "${dest_file}")
     file(SHA256 "${dest_file}" current_hash)
     if(NOT "${current_hash}" STREQUAL "${expected_hash}")
+      if(VMTK_ALLOW_CMAKE_DOWNLOADS)
+        file(DOWNLOAD "${url}" "${dest_file}" EXPECTED_HASH SHA256="${expected_hash}")
+      else()
+        message(FATAL_ERROR
+          "Cached ${filename} hash mismatch at ${dest_file}. "
+          "Set VMTK_ALLOW_CMAKE_DOWNLOADS=ON to refresh from ${url}.")
+      endif()
+    endif()
+  else()
+    if(VMTK_ALLOW_CMAKE_DOWNLOADS)
       file(DOWNLOAD "${url}" "${dest_file}" EXPECTED_HASH SHA256="${expected_hash}")
+    else()
+      message(FATAL_ERROR
+        "Missing required helper file ${filename}. Expected local copy under ${CMAKE_CURRENT_SOURCE_DIR} "
+        "or set VMTK_ALLOW_CMAKE_DOWNLOADS=ON.")
     endif()
   endif()
 endforeach()

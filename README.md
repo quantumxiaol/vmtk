@@ -35,13 +35,14 @@ Notes:
   `PYPES_MODULE_INSTALL_LIB_DIR`, `VMTK_SCRIPTS_INSTALL_LIB_DIR`,
   `VTK_VMTK_MODULE_INSTALL_LIB_DIR`, or `VTK_VMTK_INSTALL_LIB_DIR`. These are
   set automatically for wheel builds.
-- Runtime dependency is pinned to `vtk==9.3.0` for wheel/runtime ABI alignment.
-- Source builds require an external VTK C++ SDK (headers + `VTKConfig.cmake`);
-  Python `vtk` wheels are runtime packages and are not used as a C++ SDK here.
-- If VTK is not discoverable automatically, pass `VTK_DIR` at install time:
-  `pip install "vmtk @ git+https://github.com/vmtk/vmtk.git" --config-settings=cmake.define.VTK_DIR=/path/to/vtk-sdk/lib/cmake/vtk-9.3`
-- CI wheel builds use `cibuildwheel` and download Kitware's official VTK 9.3.0
-  SDK, then build VMTK against that SDK for deterministic binary compatibility.
+- Runtime dependency is pinned to `vtk==9.5.0` for ABI alignment.
+- Build dependency uses `vtk-sdk==9.5.0` via PEP517 build isolation, so
+  `pip/uv` source installs do not require manual `brew/apt` VTK setup in the
+  common path.
+- If you intentionally build against a custom/system VTK SDK, pass `VTK_DIR`:
+  `pip install "vmtk @ git+https://github.com/vmtk/vmtk.git" --config-settings=cmake.define.VTK_DIR=/path/to/vtk/lib/cmake/vtk-9.5`
+- CI wheel builds (`cibuildwheel`) rely on the same pinned `vtk-sdk` build
+  dependency to keep build/runtime toolchains aligned.
 
 [Installation](http://www.vmtk.org/documentation/installation.html)
 - How to install VMTK. 

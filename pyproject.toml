@@ -1,5 +1,8 @@
 [build-system]
-requires = ["scikit-build-core>=0.11.0"]
+requires = [
+  "scikit-build-core>=0.11.0",
+  "vtk-sdk==9.5.0",
+]
 build-backend = "scikit_build_core.build"
 
 [project]
@@ -37,7 +40,7 @@ classifiers = [
   "Topic :: Scientific/Engineering :: Medical Science Apps.",
   "Topic :: Scientific/Engineering :: Visualization",
 ]
-dependencies = ["vtk==9.3.0"]
+dependencies = ["vtk==9.5.0"]
 
 [project.optional-dependencies]
 test = ["pytest>=8.0"]
