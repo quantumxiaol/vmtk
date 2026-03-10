@@ -27,8 +27,9 @@ jobs:
         uses: pypa/cibuildwheel@v3.4.0
         env:
           CIBW_ARCHS: ${{ matrix.cibw_arch }}
-          CIBW_BUILD: "cp39-* cp310-* cp311-* cp312-*"
-          CIBW_SKIP: "pp* *musllinux*"
+          CIBW_BUILD: "cp310-* cp311-* cp312-*"
+          CIBW_SKIP: "*musllinux*"
+          CIBW_BUILD_VERBOSITY: "1"
           CIBW_ENVIRONMENT_MACOS: >
             CMAKE_ARGS="-DUSE_SYSTEM_VTK=ON"
 
