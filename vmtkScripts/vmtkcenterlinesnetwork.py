@@ -21,9 +21,16 @@ import sys
 from vmtk import vtkvmtk
 from vmtk import pypes
 from vmtk import vmtkcenterlines, vmtkcenterlinestonumpy, vmtknetworkextraction, vmtkdelaunayvoronoi, vmtknumpytocenterlines, vmtksurfacecapper
-from joblib import Parallel, delayed
 import random
 import numpy as np
+
+try:
+    from joblib import Parallel, delayed
+    _HAS_JOBLIB = True
+except ModuleNotFoundError:
+    Parallel = None
+    delayed = None
+    _HAS_JOBLIB = False
 
 
 def _compute_centerlines_network(surfaceAddress, delaunayAddress, voronoiAddress, poleIdsAddress, cell, points):
@@ -94,10 +101,12 @@ class vmtkCenterlinesNetwork(pypes.pypeScript):
         self.RandomSeed = None
         
         
-        # When using Joblib Under Windows, it is important to protect the main loop of code to avoid recursive spawning
-        # of subprocesses. Since we cannot guarantee no code will run outside of “if __name__ == ‘__main__’” blocks
-        # (only imports and definitions), we don't use joblib on windows.
-        if (sys.platform == 'win32') or (sys.platform == 'win64') or (sys.platform == 'cygwin'):
+        # Joblib is optional. If unavailable, extraction still runs serially.
+        if not _HAS_JOBLIB:
+            self.PrintLog('joblib is not available. Centerline extraction will execute serially.')
+            self.UseJoblib = False
+        # When using Joblib under Windows, protect the main loop to avoid recursive subprocess spawning.
+        elif (sys.platform == 'win32') or (sys.platform == 'win64') or (sys.platform == 'cygwin'):
             self.PrintLog('Centerlines extraction on windows computer will execute serially.')
             self.PrintLog('To speed up execution, please run vmtk on unix-like operating system and enable joblib')
             self.UseJoblib = False

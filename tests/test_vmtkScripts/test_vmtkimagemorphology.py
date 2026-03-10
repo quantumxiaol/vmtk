@@ -15,7 +15,15 @@
 ##       University at Buffalo
 
 import pytest
+from vmtk import vtkvmtk
 import vmtk.vmtkimagemorphology as morph
+
+
+if not hasattr(vtkvmtk, 'vtkvmtkGrayscaleMorphologyImageFilter'):
+    pytest.skip(
+        "Image morphology wrappers are disabled in this build.",
+        allow_module_level=True,
+    )
 
 
 def test_dilate_grayscale_image(aorta_image, compare_images):

@@ -1,4 +1,5 @@
 from __future__ import absolute_import #NEEDS TO STAY AS TOP LEVEL MODULE FOR Py2-3 COMPATIBILITY
+import importlib
 
 __all__ = [
     'vmtk.vmtkactivetubes',
@@ -154,5 +155,56 @@ __all__ = [
     'vmtk.vmtktetringenerator'
     ]
 
-for item in __all__:
-    exec('from '+item+' import *')
+_loaded_modules = {}
+_failed_modules = {}
+
+
+def _module_short_name(module_name):
+    return module_name.rsplit('.', 1)[-1]
+
+
+def _load_module(module_name):
+    if module_name in _loaded_modules:
+        return _loaded_modules[module_name]
+    if module_name in _failed_modules:
+        raise _failed_modules[module_name]
+
+    module = importlib.import_module(module_name)
+    _loaded_modules[module_name] = module
+    globals()[_module_short_name(module_name)] = module
+    return module
+
+
+def _iter_script_modules():
+    for module_name in __all__:
+        yield module_name
+
+
+def __getattr__(name):
+    for module_name in _iter_script_modules():
+        if _module_short_name(module_name) == name:
+            try:
+                return _load_module(module_name)
+            except Exception as exc:
+                _failed_modules[module_name] = exc
+                raise
+
+    for module_name in _iter_script_modules():
+        if module_name in _failed_modules:
+            continue
+        try:
+            module = _load_module(module_name)
+        except Exception as exc:
+            _failed_modules[module_name] = exc
+            continue
+        if hasattr(module, name):
+            value = getattr(module, name)
+            globals()[name] = value
+            return value
+
+    raise AttributeError("module '%s' has no attribute '%s'" % (__name__, name))
+
+
+def __dir__():
+    module_names = [_module_short_name(module_name) for module_name in __all__]
+    return sorted(set(list(globals().keys()) + module_names))

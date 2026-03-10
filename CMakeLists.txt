@@ -60,10 +60,44 @@ else ()
 endif()
 
 #-----------------------------------------------------------------------------
+# Feature gating (dependency-minimized defaults)
+# Keep these disabled by default to avoid hard dependencies on ITK, OpenGL
+# rendering modules, and TetGen.
+set(VMTK_ENABLE_SEGMENTATION OFF CACHE BOOL
+  "Build VMTK segmentation classes (requires ITK)." FORCE)
+set(VMTK_USE_RENDERING OFF CACHE BOOL
+  "Build VMTK rendering classes." FORCE)
+set(VMTK_BUILD_TETGEN OFF CACHE BOOL
+  "Build TetGen and TetGen wrapper. Check TetGen license before you activate this." FORCE)
+
+#-----------------------------------------------------------------------------
+# Wheel builds (PEP517 via scikit-build-core)
+# Keep install locations inside the Python package so users do not need to pass
+# install-dir cache variables manually.
+if(DEFINED SKBUILD)
+  # Python wrapping modules are only generated for shared builds.
+  set(BUILD_SHARED_LIBS ON CACHE BOOL "" FORCE)
+  # Keep contrib python scripts to maximize compute utilities (numpy converters, etc.).
+  set(VMTK_CONTRIB_SCRIPTS ON CACHE BOOL "" FORCE)
+  set(VMTK_INSTALL_LIB_DIR "vmtk" CACHE STRING "" FORCE)
+  set(VMTK_MODULE_INSTALL_LIB_DIR "vmtk" CACHE STRING "" FORCE)
+  set(PYPES_MODULE_INSTALL_LIB_DIR "vmtk" CACHE STRING "" FORCE)
+  set(VMTK_SCRIPTS_INSTALL_LIB_DIR "vmtk" CACHE STRING "" FORCE)
+  set(VMTK_CONTRIB_SCRIPTS_INSTALL_LIB_DIR "vmtk" CACHE STRING "" FORCE)
+  set(VTK_VMTK_INSTALL_LIB_DIR "vmtk" CACHE STRING "" FORCE)
+  set(VTK_VMTK_MODULE_INSTALL_LIB_DIR "vmtk" CACHE STRING "" FORCE)
+  if(APPLE)
+    set(CMAKE_INSTALL_RPATH "@loader_path" CACHE STRING "" FORCE)
+  elseif(UNIX)
+    set(CMAKE_INSTALL_RPATH "$ORIGIN" CACHE STRING "" FORCE)
+  endif()
+endif()
+
+#-----------------------------------------------------------------------------
 # ITK setup
 option( USE_SYSTEM_ITK
   "Exclude ITK from SuperBuild and use an existing build instead." OFF )
-if( USE_SYSTEM_ITK )
+if( VMTK_ENABLE_SEGMENTATION AND USE_SYSTEM_ITK )
   find_package( ITK REQUIRED )
   include( ${ITK_USE_FILE} )
 endif()
@@ -142,7 +176,7 @@ if( VMTK_USE_SUPERBUILD )
     # set ( BUILD_TESTING OFF CACHE BOOL "" FORCE )
     set ( VTK_USE_COCOA ON )
     set ( VTK_VMTK_USE_COCOA ON )
-    set ( VMTK_USE_RENDERING ON )
+    set ( VMTK_USE_RENDERING OFF CACHE BOOL "" FORCE )
     set (  OFF )
     set ( VTK_WRAP_PYTHON OFF )
     set ( VTK_WRAP_TCL OFF )
@@ -160,10 +194,10 @@ if( VMTK_USE_SUPERBUILD )
     if (APPLE)
       set ( VTK_USE_X OFF )
     endif()
-    option ( VMTK_CONTRIB_SCRIPTS "Install modules from the vmtkScripts/contrib directory." ON )
-    option ( VTK_VMTK_CONTRIB "Build and install classes in the vtkVmtk/Contrib directory." ON )
+    option ( VMTK_CONTRIB_SCRIPTS "Install modules from the vmtkScripts/contrib directory." OFF )
+    option ( VTK_VMTK_CONTRIB "Build and install classes in the vtkVmtk/Contrib directory." OFF )
     # option ( VMTK_ENABLE_DISTRIBUTION "Enable distribution targets." OFF )
-    option ( VMTK_BUILD_TETGEN "Build TetGen and TetGen wrapper. Check TetGen license before you activate this." ON )
+    option ( VMTK_BUILD_TETGEN "Build TetGen and TetGen wrapper. Check TetGen license before you activate this." OFF )
     option ( VMTK_BUILD_STREAMTRACER "Build static temporal stream tracer." ON )
     if (APPLE)
       option ( VTK_VMTK_USE_COCOA "Build with Cocoa support." ON )
@@ -171,7 +205,7 @@ if( VMTK_USE_SUPERBUILD )
     endif ()
     set ( CMAKE_BUILD_TYPE "Release" CACHE STRING "" FORCE )
     option ( BUILD_SHARED_LIBS "Build shared libraries." ON )
-    option ( VMTK_USE_RENDERING "Build VMTK rendering classes." ON )
+    option ( VMTK_USE_RENDERING "Build VMTK rendering classes." OFF )
     #option ( VTK_USE_HYBRID "Build VTK Hybrid classes." ON )
     option(VMTK_SCRIPTS_ENABLED "Build and install vmtkScripts and Pypes" ON)
     option(VMTK_MINIMAL_INSTALL "Do not install individual scripts, only vmtk.py" OFF)
@@ -182,7 +216,7 @@ if( VMTK_USE_SUPERBUILD )
 
 else()
 
-  if ( NOT ITK_FOUND )
+  if ( VMTK_ENABLE_SEGMENTATION AND NOT ITK_FOUND )
     find_package( ITK REQUIRED )
     include( ${ITK_USE_FILE} )
   endif()

@@ -19,6 +19,7 @@ import pytest
 import os
 import copy
 from hashlib import sha1
+import vtk
 
 import vmtk.vmtkimagereader as imagereader
 import vmtk.vmtkimagetonumpy as imagetonumpy
@@ -33,6 +34,76 @@ import vmtk.vmtksurfacewriter as surfacewriter
 import vmtk.vmtkmeshreader as meshreader
 import vmtk.vmtkmeshwriter as meshwriter
 import vmtk.vmtkmeshcompare as meshcompare
+from vmtk import vtkvmtk
+
+
+ITK_WRAPPERS_AVAILABLE = hasattr(vtkvmtk, 'vtkvmtkITKArchetypeImageSeriesScalarReader')
+SEGMENTATION_WRAPPERS_AVAILABLE = hasattr(vtkvmtk, 'vtkvmtkVesselnessMeasureImageFilter')
+RENDERING_WRAPPERS_AVAILABLE = hasattr(vtkvmtk, 'vtkvmtkInteractorStyleTrackballCamera')
+VTK_VERSION = tuple(int(part) for part in vtk.vtkVersion.GetVTKVersion().split('.')[:2])
+
+SEGMENTATION_TEST_MODULES = {
+    'test_vmtkcenterlineimage.py',
+    'test_vmtkimagefeatures.py',
+    'test_vmtkimageinitialization.py',
+    'test_vmtkimagemorphology.py',
+    'test_vmtkimagenormalize.py',
+    'test_vmtkimageobjectenhancement.py',
+    'test_vmtkimageotsuthresholds.py',
+    'test_vmtkimagesmoother.py',
+    'test_vmtkimagevesselenhancement.py',
+    'test_vmtklevelsetsegmentation.py',
+}
+
+RENDERING_TEST_MODULES = {
+    'test_vmtkimagevolumeviewer.py',
+}
+
+ITK_DEPENDENT_TEST_MODULES = {
+    'test_vmtkimagevoiselector.py',
+    'test_vmtkmarchingcubes.py',
+    'test_vmtksurfacetransformtoras.py',
+}
+
+CRASH_PRONE_TEST_MODULES = {
+    'test_vmtksurfaceremeshing.py',
+}
+
+
+def pytest_collection_modifyitems(config, items):
+    if not SEGMENTATION_WRAPPERS_AVAILABLE:
+        skip_segmentation = pytest.mark.skip(
+            reason='Segmentation wrappers are disabled in this build.'
+        )
+        for item in items:
+            if item.fspath.basename in SEGMENTATION_TEST_MODULES:
+                item.add_marker(skip_segmentation)
+
+    if not RENDERING_WRAPPERS_AVAILABLE:
+        skip_rendering = pytest.mark.skip(
+            reason='Rendering wrappers are disabled in this build.'
+        )
+        for item in items:
+            if item.fspath.basename in RENDERING_TEST_MODULES:
+                item.add_marker(skip_rendering)
+
+    if not ITK_WRAPPERS_AVAILABLE:
+        skip_itk = pytest.mark.skip(
+            reason='ITK reader wrappers are disabled in this build.'
+        )
+        for item in items:
+            if item.fspath.basename == 'test_vmtkimagereader.py' and 'test_read_dicom_image' in item.nodeid:
+                item.add_marker(skip_itk)
+            if item.fspath.basename in ITK_DEPENDENT_TEST_MODULES:
+                item.add_marker(skip_itk)
+
+    if VTK_VERSION >= (9, 5):
+        skip_crashy = pytest.mark.skip(
+            reason='Known native instability with VTK 9.5+ in dependency-minimized builds.'
+        )
+        for item in items:
+            if item.fspath.basename in CRASH_PRONE_TEST_MODULES:
+                item.add_marker(skip_crashy)
 
 
 @pytest.fixture(scope='module')
@@ -67,6 +138,7 @@ def input_datadir():
 @pytest.fixture(scope='module')
 def aorta_image(input_datadir):
     reader = imagereader.vmtkImageReader()
+    reader.UseITKIO = 0
     reader.InputFileName = os.path.join(input_datadir, 'aorta.mha')
     reader.Execute()
     return reader.Image
@@ -81,7 +153,9 @@ def image_to_sha():
         converter = imagetonumpy.vmtkImageToNumpy()
         converter.Image = image
         converter.Execute()
-        check = converter.ArrayDict['PointData']['ImageScalars'].copy(order='C')
+        point_data = converter.ArrayDict['PointData']
+        scalar_key = 'ImageScalars' if 'ImageScalars' in point_data else next(iter(point_data.keys()))
+        check = point_data[scalar_key].copy(order='C')
         return sha1(check).hexdigest()
     return make_image_to_sha
 
@@ -117,6 +191,7 @@ def write_image():
 def compare_images():
     def make_compare_images(image, reference_file, tolerance=0.1):
         reader = imagereader.vmtkImageReader()
+        reader.UseITKIO = 0
         try:
             datadir = os.path.join(
                         os.path.dirname(

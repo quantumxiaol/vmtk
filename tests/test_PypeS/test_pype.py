@@ -69,3 +69,49 @@ def test_parse_arguments_two_functions_with_text():
     pipe.Arguments = ['vmtkimagereader', '-ifile', 'test.vtp', '--pipe', 'vmtkimageviewer', '-ofile', 'test.vti']
     pipe.ParseArguments()
     assert pipe.ScriptList == [['vmtkimagereader', ['-ifile', 'test.vtp']], ['vmtkimageviewer', ['-ofile', 'test.vti']]]
+
+
+def _execute_with_import_error(monkeypatch, script_name, import_error_message):
+    pipe = pype.Pype()
+    pipe.ScriptList = [[script_name, []]]
+
+    original_import_module = pype.importlib.import_module
+
+    def fake_import_module(module_name):
+        if module_name == 'vmtk.' + script_name:
+            raise ImportError(import_error_message)
+        return original_import_module(module_name)
+
+    monkeypatch.setattr(pype.importlib, 'import_module', fake_import_module)
+
+    with pytest.raises(RuntimeError) as excinfo:
+        pipe.Execute()
+
+    return str(excinfo.value)
+
+
+def test_import_error_hint_for_segmentation_dependency(monkeypatch):
+    message = _execute_with_import_error(
+        monkeypatch,
+        'vmtklevelsetsegmentation',
+        "No module named 'vtkvmtkSegmentationPython'",
+    )
+    assert 'depends on Segmentation/ITK support' in message
+
+
+def test_import_error_hint_for_rendering_dependency(monkeypatch):
+    message = _execute_with_import_error(
+        monkeypatch,
+        'vmtkrenderer',
+        "No module named 'vtkvmtkRenderingPython'",
+    )
+    assert 'depends on Rendering support' in message
+
+
+def test_import_error_hint_for_tetgen_dependency(monkeypatch):
+    message = _execute_with_import_error(
+        monkeypatch,
+        'vmtktetgen',
+        "No module named 'vtkvmtkTetGenWrapper'",
+    )
+    assert 'depends on TetGen support' in message

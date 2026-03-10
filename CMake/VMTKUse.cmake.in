@@ -6,4 +6,29 @@ include_directories(${VMTK_INCLUDE_DIRS})
 
 link_directories(${VMTK_LIBRARY_DIRS})
 
-link_libraries(vtkvmtkCommon vtkvmtkComputationalGeometry vtkvmtkContrib vtkvmtkDifferentialGeometry vtkvmtkIO vtkvmtkITK vtkvmtkMisc vtkvmtkSegmentation nl tet)
+set(_vmtk_use_libraries
+  vtkvmtkCommon
+  vtkvmtkComputationalGeometry
+  vtkvmtkDifferentialGeometry
+  vtkvmtkIO
+  vtkvmtkMisc
+  nl
+  )
+
+if(TARGET vtkvmtkContrib)
+  list(APPEND _vmtk_use_libraries vtkvmtkContrib)
+endif()
+if(TARGET vtkvmtkRendering)
+  list(APPEND _vmtk_use_libraries vtkvmtkRendering)
+endif()
+if(TARGET vtkvmtkSegmentation)
+  list(APPEND _vmtk_use_libraries vtkvmtkSegmentation)
+endif()
+if(TARGET vtkvmtkITK)
+  list(APPEND _vmtk_use_libraries vtkvmtkITK)
+endif()
+if(TARGET tet)
+  list(APPEND _vmtk_use_libraries tet)
+endif()
+
+link_libraries(${_vmtk_use_libraries})

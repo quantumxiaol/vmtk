@@ -16,18 +16,23 @@
 
 import pytest
 import os
+from vmtk import vtkvmtk
 import vmtk.vmtkimagereader as imagereader
+
+ITK_WRAPPERS_AVAILABLE = hasattr(vtkvmtk, 'vtkvmtkITKArchetypeImageSeriesScalarReader')
 
 
 def test_read_mha_image(input_datadir, compare_images):
     name = __name__ + '_test_read_mha_image.mha'
     reader = imagereader.vmtkImageReader()
+    reader.UseITKIO = 0
     reader.InputFileName = os.path.join(input_datadir, 'aorta.mha')
     reader.Execute()
 
     assert compare_images(reader.Image, name) == True
 
 
+@pytest.mark.skipif(not ITK_WRAPPERS_AVAILABLE, reason='ITK reader wrappers are disabled in this build.')
 def test_read_dicom_image(input_datadir, compare_images):
     name = __name__ + '_test_read_dicom_image.dcm'
     reader = imagereader.vmtkImageReader()
@@ -40,6 +45,7 @@ def test_read_dicom_image(input_datadir, compare_images):
 def test_read_vti_image(input_datadir, compare_images):
     name = __name__ + '_test_read_vti_image.vti'
     reader = imagereader.vmtkImageReader()
+    reader.UseITKIO = 0
     reader.InputFileName = os.path.join(input_datadir, 'vase.vti')
     reader.Execute()
 

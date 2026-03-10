@@ -18,8 +18,12 @@ import vtk
 import sys
 
 from vmtk import vtkvmtk
-from vmtk import vmtkrenderer
 from vmtk import pypes
+
+try:
+    from vmtk import vmtkrenderer
+except ImportError:
+    vmtkrenderer = None
 
 
 ## TODO: make SeedSelector a separate pype script to be used in other contexts
@@ -191,6 +195,9 @@ class vmtkPickPointSeedSelector(vmtkSeedSelector):
         self._TargetSeedIds.Initialize()
 
         if not self.vmtkRenderer:
+            if vmtkrenderer is None:
+                self.PrintError('vmtkPickPointSeedSelector Error: rendering support is disabled in this build.')
+                return
             self.vmtkRenderer = vmtkrenderer.vmtkRenderer()
             self.vmtkRenderer.Initialize()
             self.OwnRenderer = 1
@@ -273,6 +280,9 @@ class vmtkOpenProfilesSeedSelector(vmtkSeedSelector):
         self._TargetSeedIds.Initialize()
 
         if not self.vmtkRenderer:
+            if vmtkrenderer is None:
+                self.PrintError('vmtkOpenProfilesSeedSelector Error: rendering support is disabled in this build.')
+                return
             self.vmtkRenderer = vmtkrenderer.vmtkRenderer()
             self.vmtkRenderer.Initialize()
             self.OwnRenderer = 1
@@ -531,6 +541,9 @@ class vmtkCenterlines(pypes.pypeScript):
                 return
 
         if not self.vmtkRenderer and self.SeedSelectorName in ['pickpoint','openprofiles']:
+            if vmtkrenderer is None:
+                self.PrintError('vmtkCenterlines error: rendering-dependent seed selectors are unavailable because rendering is disabled in this build.')
+                return
             self.vmtkRenderer = vmtkrenderer.vmtkRenderer()
             self.vmtkRenderer.Initialize()
             self.OwnRenderer = 1

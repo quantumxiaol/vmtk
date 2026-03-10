@@ -29,7 +29,6 @@ if __name__ == '__main__':
         sys.path.append(os.environ["PYTHONPATH"])
         os.environ["PATH"] += os.path.pathsep + os.path.join(vmtkhome,"bin")
 
-    import vtk
     from vmtk import pypes
 
     vmtkOptions = ['--help', '--ui', '--file']

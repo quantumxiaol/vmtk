@@ -16,10 +16,23 @@
 
 import pytest
 import vmtk.vmtkimageotsuthresholds as otsu
-from vmtk.vtkvmtk import vtkvmtkITKVersion
+from vmtk import vtkvmtk
 
 
-@pytest.mark.skipif(vtkvmtkITKVersion.GetITKMajorVersion() > 4, reason="requires itk 4 or lower")
+if (
+    not hasattr(vtkvmtk, 'vtkvmtkITKVersion')
+    or not hasattr(vtkvmtk, 'vtkvmtkOtsuMultipleThresholdsImageFilter')
+):
+    pytest.skip(
+        "ITK segmentation wrapper support is disabled in this build.",
+        allow_module_level=True,
+    )
+
+vtkvmtkITKVersion = vtkvmtk.vtkvmtkITKVersion
+ITK_MAJOR_VERSION = vtkvmtkITKVersion.GetITKMajorVersion()
+
+
+@pytest.mark.skipif(ITK_MAJOR_VERSION > 4, reason="requires itk 4 or lower")
 @pytest.mark.parametrize("thresholds,paramid", [
     (1, '0'),
     (2, '1'),
@@ -35,7 +48,7 @@ def test_otsu_image_multiple_thresholds_itk4(aorta_image, compare_images, thresh
     assert compare_images(otsuer.Image, name) == True
 
 
-@pytest.mark.skipif(vtkvmtkITKVersion.GetITKMajorVersion() > 4, reason="requires itk 4 or lower")
+@pytest.mark.skipif(ITK_MAJOR_VERSION > 4, reason="requires itk 4 or lower")
 def test_otsu_image_256_histogram_bins_itk4(aorta_image, compare_images):
     name = __name__ + '_test_otsu_image_256_histogram_bins.mha'
     otsuer = otsu.vmtkImageOtsuThresholds()
@@ -46,7 +59,7 @@ def test_otsu_image_256_histogram_bins_itk4(aorta_image, compare_images):
     assert compare_images(otsuer.Image, name) == True
 
 
-@pytest.mark.skipif(vtkvmtkITKVersion.GetITKMajorVersion() < 5, reason="requires itk 5 or higher")
+@pytest.mark.skipif(ITK_MAJOR_VERSION < 5, reason="requires itk 5 or higher")
 @pytest.mark.parametrize("thresholds,paramid", [
     (1, '0'),
     (2, '1'),
@@ -62,7 +75,7 @@ def test_otsu_image_multiple_thresholds_itk5(aorta_image, compare_images, thresh
     assert compare_images(otsuer.Image, name) == True
 
 
-@pytest.mark.skipif(vtkvmtkITKVersion.GetITKMajorVersion() < 5, reason="requires itk 5 or higher")
+@pytest.mark.skipif(ITK_MAJOR_VERSION < 5, reason="requires itk 5 or higher")
 def test_otsu_image_256_histogram_bins_itk5(aorta_image, compare_images):
     name = __name__ + '_test_otsu_image_256_histogram_bins_itk5.mha'
     otsuer = otsu.vmtkImageOtsuThresholds()

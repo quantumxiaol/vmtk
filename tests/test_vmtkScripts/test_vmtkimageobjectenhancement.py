@@ -15,7 +15,15 @@
 ##       University at Buffalo
 
 import pytest
+from vmtk import vtkvmtk
 import vmtk.vmtkimageobjectenhancement as enhance
+
+
+if not hasattr(vtkvmtk, 'vtkvmtkObjectnessMeasureImageFilter'):
+    pytest.skip(
+        "Image object enhancement wrappers are disabled in this build.",
+        allow_module_level=True,
+    )
 
 
 def test_enhance_image_with_defaults(aorta_image, compare_images):

@@ -1,1 +1,15 @@
+from __future__ import absolute_import
 
+import os
+import sys
+
+
+def _enable_vendored_vtk():
+  # VMTK wheels vendor vtk under vmtk/.vtk to avoid file conflicts
+  # with the standalone vtk distribution.
+  bundle = os.path.join(os.path.dirname(__file__), ".vtk")
+  if os.path.isfile(os.path.join(bundle, "vtk.py")) and bundle not in sys.path:
+    sys.path.insert(0, bundle)
+
+
+_enable_vendored_vtk()

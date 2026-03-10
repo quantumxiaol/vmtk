@@ -1,4 +1,4 @@
- .gitignore                                                                     
+                                                            
 *~
 .idea
 __pycache__
@@ -7,3 +7,15 @@ __pycache__
 .DS_Store
 .vscode
 build*
+
+.venv
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Keep CI workflows versioned even with broad build* ignore rules.
+!.github/
+!.github/workflows/
+!.github/workflows/*.yml

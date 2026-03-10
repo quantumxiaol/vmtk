@@ -1,0 +1,53 @@
+name: Build VMTK Wheels (Official Alignment)
+
+on:
+  push:
+    branches: [master]
+  release:
+    types: [published]
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  build_wheels:
+    name: Build wheels on ${{ matrix.os }} (${{ matrix.cibw_arch }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: macos-14
+            cibw_arch: arm64
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build wheels using cibuildwheel
+        uses: pypa/cibuildwheel@v3.4.0
+        env:
+          CIBW_ARCHS: ${{ matrix.cibw_arch }}
+          CIBW_BUILD: "cp310-*"
+          CIBW_SKIP: "*musllinux*"
+          CIBW_BUILD_VERBOSITY: "1"
+          CIBW_TEST_COMMAND: >
+            LOG="/tmp/vmtk-cibw-test.log";
+            rc=0;
+            python -I -X faulthandler -c "import os,sys,tempfile; os.chdir(tempfile.gettempdir()); print('py_exe', sys.executable, flush=True); print('py_ver', sys.version.replace('\n',' '), flush=True); print('sys_path', sys.path, flush=True); import vmtk; print('vmtk_pkg', getattr(vmtk,'__file__',''), flush=True); from vmtk import vtkvmtk; print('vtkvmtk_ok', flush=True); import vtk; vtk_file=getattr(vtk,'__file__',''); print('vtk_pkg', vtk_file, flush=True); assert '/vmtk/.vtk/' in vtk_file.replace('\\\\','/'), 'non-vendored vtk loaded: ' + vtk_file" >"$LOG" 2>&1 || rc=$?;
+            cat "$LOG";
+            exit "$rc"
+          CIBW_BEFORE_BUILD_MACOS: >
+            python -m pip install "vtk==9.5.0"
+          CIBW_REPAIR_WHEEL_COMMAND_MACOS: >
+            DYLD_LIBRARY_PATH="$(python -c 'from pathlib import Path; import site, importlib.util, sys; spec=importlib.util.find_spec("vtkmodules"); candidates=[]; candidates += [Path(spec.origin).resolve().parent/".dylibs", Path(spec.origin).resolve().parent] if spec else []; [candidates.extend([Path(sp)/"vtkmodules"/".dylibs", Path(sp)/"vtkmodules", Path(sp)/"lib"]) for sp in site.getsitepackages()]; found=next((p for p in candidates if p.exists() and any(p.glob("libvtk*.dylib"))), None); print(found if found else ""); sys.exit(0 if found else "VTK dylib path not found")')"
+            delocate-wheel --require-archs {delocate_archs} -w {dest_dir} -v {wheel}
+            && python tools/patch_macos_wheel_runtime.py "{dest_dir}/$(basename {wheel})"
+          CIBW_ENVIRONMENT_MACOS: >
+            CMAKE_ARGS="-DUSE_SYSTEM_VTK=ON"
+
+      - name: Upload wheels artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cibw-wheels-${{ matrix.os }}-${{ matrix.cibw_arch }}
+          path: ./wheelhouse/*.whl

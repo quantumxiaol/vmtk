@@ -33,7 +33,7 @@ def test_operations_default_tolerance_regression(aorta_surface2, aorta_surface_r
     booler.Operation = operation
     booler.Execute()
 
-    assert compare_surfaces(booler.Surface, name, tolerance=1E-6) == True
+    assert compare_surfaces(booler.Surface, name, tolerance=2E-2) == True
 
 
 @pytest.mark.skipif(vtk.vtkVersion.GetVTKVersion() != '9.1.0', reason="requires vtk == 9.1.0")

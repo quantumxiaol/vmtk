@@ -473,14 +473,35 @@ void vtkvmtkPolyDataBranchSections::ComputeBranchSections(vtkPolyData* input, in
     bool closed = false;
     this->ExtractCylinderSection(cylinder,averagePoint,averageTangent,section,closed);
 
-    section->BuildCells();
-    vtkPoints* sectionCellPoints = section->GetCell(0)->GetPoints();
-    int numberOfSectionCellPoints = sectionCellPoints->GetNumberOfPoints();
+    vtkCellArray* sectionPolys = section->GetPolys();
+    vtkIdList* sectionPointIds = vtkIdList::New();
+    if (!sectionPolys)
+      {
+      sectionPointIds->Delete();
+      groupCellIds->Delete();
+      cylinder->Delete();
+      section->Delete();
+      continue;
+      }
+
+    sectionPolys->InitTraversal();
+    if (!sectionPolys->GetNextCell(sectionPointIds) || sectionPointIds->GetNumberOfIds() == 0)
+      {
+      sectionPointIds->Delete();
+      groupCellIds->Delete();
+      cylinder->Delete();
+      section->Delete();
+      continue;
+      }
+
+    int numberOfSectionCellPoints = sectionPointIds->GetNumberOfIds();
     branchSectionPolys->InsertNextCell(numberOfSectionCellPoints);
     int k;
     for (k=0; k<numberOfSectionCellPoints; k++)
     {
-      vtkIdType branchPointId = branchSectionPoints->InsertNextPoint(sectionCellPoints->GetPoint(k));
+      double sectionPoint[3];
+      section->GetPoint(sectionPointIds->GetId(k),sectionPoint);
+      vtkIdType branchPointId = branchSectionPoints->InsertNextPoint(sectionPoint);
       branchSectionPolys->InsertCellPoint(branchPointId);
     }
     
@@ -496,6 +517,7 @@ void vtkvmtkPolyDataBranchSections::ComputeBranchSections(vtkPolyData* input, in
     branchSectionClosedArray->InsertNextValue(closed);
     branchSectionDistanceSpheresArray->InsertNextValue(totalNumberOfSpheres);
 
+    sectionPointIds->Delete();
     groupCellIds->Delete();
     cylinder->Delete();
     section->Delete();
@@ -504,6 +526,8 @@ void vtkvmtkPolyDataBranchSections::ComputeBranchSections(vtkPolyData* input, in
 
 void vtkvmtkPolyDataBranchSections::ExtractCylinderSection(vtkPolyData* cylinder, double origin[3], double normal[3], vtkPolyData* section, bool & closed)
 {
+  closed = false;
+
   vtkPlane* plane = vtkPlane::New();
   plane->SetOrigin(origin);
   plane->SetNormal(normal);
@@ -521,6 +545,9 @@ void vtkvmtkPolyDataBranchSections::ExtractCylinderSection(vtkPolyData* cylinder
 
   if (cleaner->GetOutput()->GetNumberOfPoints() == 0)
     {
+    plane->Delete();
+    cutter->Delete();
+    cleaner->Delete();
     return;
     }
 
@@ -532,10 +559,64 @@ void vtkvmtkPolyDataBranchSections::ExtractCylinderSection(vtkPolyData* cylinder
 
   section->DeepCopy(connectivityFilter->GetOutput());
 
-  // TODO: manually reconstruct single cell line from connectivity output
-
   if (section->GetNumberOfCells() == 0)
     {
+    vtkCellArray* sectionPolys = section->GetPolys();
+    vtkIdList* recoveredPolygonPointIds = vtkIdList::New();
+    bool recoveredFromPolys = false;
+
+    if (sectionPolys)
+      {
+      sectionPolys->InitTraversal();
+      if (sectionPolys->GetNextCell(recoveredPolygonPointIds) && recoveredPolygonPointIds->GetNumberOfIds() > 0)
+        {
+        const vtkIdType numberOfPolygonPoints = recoveredPolygonPointIds->GetNumberOfIds();
+
+        if (numberOfPolygonPoints > 1)
+          {
+          double averageEdgeLength = 0.0;
+          for (vtkIdType i=0; i<numberOfPolygonPoints-1; i++)
+            {
+            double point0[3], point1[3];
+            section->GetPoint(recoveredPolygonPointIds->GetId(i),point0);
+            section->GetPoint(recoveredPolygonPointIds->GetId(i+1),point1);
+            averageEdgeLength += sqrt(vtkMath::Distance2BetweenPoints(point0,point1));
+            }
+          averageEdgeLength /= static_cast<double>(numberOfPolygonPoints-1);
+
+          if (averageEdgeLength > 0.0)
+            {
+            double firstPoint[3], lastPoint[3];
+            section->GetPoint(recoveredPolygonPointIds->GetId(0),firstPoint);
+            section->GetPoint(recoveredPolygonPointIds->GetId(numberOfPolygonPoints-1),lastPoint);
+            double endPointDistance = sqrt(vtkMath::Distance2BetweenPoints(firstPoint,lastPoint));
+            closed = (endPointDistance <= 2.0 * averageEdgeLength);
+            }
+          }
+
+        section->GetLines()->Reset();
+        section->GetPolys()->Reset();
+        section->GetPolys()->InsertNextCell(recoveredPolygonPointIds);
+        section->BuildCells();
+        recoveredFromPolys = section->GetNumberOfCells() > 0;
+        }
+      }
+
+    recoveredPolygonPointIds->Delete();
+
+    if (recoveredFromPolys)
+      {
+      plane->Delete();
+      cutter->Delete();
+      cleaner->Delete();
+      connectivityFilter->Delete();
+      return;
+      }
+
+    plane->Delete();
+    cutter->Delete();
+    cleaner->Delete();
+    connectivityFilter->Delete();
     return;
     }
 
@@ -630,22 +711,64 @@ void vtkvmtkPolyDataBranchSections::ExtractCylinderSection(vtkPolyData* cylinder
   section->GetPolys()->Reset();
 
   section->GetPolys()->InsertNextCell(polygonPointIds);
+  section->BuildCells();
 
+  plane->Delete();
+  cleaner->Delete();
   cutter->Delete();
   connectivityFilter->Delete();
   polygonPointIds->Delete();
 }
 
-double vtkvmtkPolyDataBranchSections::ComputeBranchSectionArea(vtkPolyData* branchSection)
+namespace
 {
-  branchSection->BuildCells();
-  
-  if (branchSection->GetNumberOfCells() == 0)
+bool vtkvmtkBuildSectionPolygon(vtkPolyData* branchSection, vtkPolygon* sectionPolygon)
+{
+  if (!branchSection || !sectionPolygon)
     {
-    return 0.0;
+    return false;
     }
 
-  vtkPolygon* sectionPolygon = vtkPolygon::SafeDownCast(branchSection->GetCell(0));
+  vtkCellArray* sectionPolys = branchSection->GetPolys();
+  if (!sectionPolys)
+    {
+    return false;
+    }
+
+  vtkIdList* sectionPointIds = vtkIdList::New();
+  sectionPolys->InitTraversal();
+  bool hasPolygon = sectionPolys->GetNextCell(sectionPointIds) && sectionPointIds->GetNumberOfIds() >= 3;
+  if (!hasPolygon)
+    {
+    sectionPointIds->Delete();
+    return false;
+    }
+
+  const vtkIdType numberOfSectionPoints = sectionPointIds->GetNumberOfIds();
+  sectionPolygon->GetPointIds()->SetNumberOfIds(numberOfSectionPoints);
+  sectionPolygon->GetPoints()->SetNumberOfPoints(numberOfSectionPoints);
+
+  for (vtkIdType i=0; i<numberOfSectionPoints; i++)
+    {
+    double point[3];
+    branchSection->GetPoint(sectionPointIds->GetId(i),point);
+    sectionPolygon->GetPointIds()->SetId(i,i);
+    sectionPolygon->GetPoints()->SetPoint(i,point);
+    }
+
+  sectionPointIds->Delete();
+  return true;
+}
+}
+
+double vtkvmtkPolyDataBranchSections::ComputeBranchSectionArea(vtkPolyData* branchSection)
+{
+  vtkPolygon* sectionPolygon = vtkPolygon::New();
+  if (!vtkvmtkBuildSectionPolygon(branchSection,sectionPolygon))
+    {
+    sectionPolygon->Delete();
+    return 0.0;
+    }
 
   vtkIdList* trianglePointIds = vtkIdList::New();
 
@@ -673,6 +796,7 @@ double vtkvmtkPolyDataBranchSections::ComputeBranchSectionArea(vtkPolyData* bran
     }
 
   trianglePointIds->Delete();
+  sectionPolygon->Delete();
 
   return polygonArea;
 }
@@ -680,15 +804,13 @@ double vtkvmtkPolyDataBranchSections::ComputeBranchSectionArea(vtkPolyData* bran
 #ifdef VMTK_ONE_SIDED_SECTION_SHAPE
 double vtkvmtkPolyDataBranchSections::ComputeBranchSectionShape(vtkPolyData* branchSection, double center[3], double sizeRange[2])
 {
-  branchSection->BuildCells();
-  
-  if (branchSection->GetNumberOfCells() == 0)
+  vtkPolygon* sectionPolygon = vtkPolygon::New();
+  if (!vtkvmtkBuildSectionPolygon(branchSection,sectionPolygon))
     {
+    sectionPolygon->Delete();
     sizeRange[0] = sizeRange[1] = 0.0;
     return 0.0;
     }
-
-  vtkPolygon* sectionPolygon = vtkPolygon::SafeDownCast(branchSection->GetCell(0));
 
   int numberOfSectionPolygonPoints = sectionPolygon->GetNumberOfPoints();
 
@@ -716,21 +838,20 @@ double vtkvmtkPolyDataBranchSections::ComputeBranchSectionShape(vtkPolyData* bra
   sizeRange[1] = maxDistance;
 
   double sectionShape = minDistance / maxDistance;
+  sectionPolygon->Delete();
 
   return sectionShape;
 }
 #else
 double vtkvmtkPolyDataBranchSections::ComputeBranchSectionShape(vtkPolyData* branchSection, double center[3], double sizeRange[2])
 {
-  branchSection->BuildCells();
-  
-  if (branchSection->GetNumberOfCells() == 0)
+  vtkPolygon* sectionPolygon = vtkPolygon::New();
+  if (!vtkvmtkBuildSectionPolygon(branchSection,sectionPolygon))
     {
+    sectionPolygon->Delete();
     sizeRange[0] = sizeRange[1] = 0.0;
     return 0.0;
     }
-
-  vtkPolygon* sectionPolygon = vtkPolygon::SafeDownCast(branchSection->GetCell(0));
 
   int numberOfSectionPolygonPoints = sectionPolygon->GetNumberOfPoints();
 
@@ -895,6 +1016,7 @@ double vtkvmtkPolyDataBranchSections::ComputeBranchSectionShape(vtkPolyData* bra
   sizeRange[1] = maxDistance;
 
   double sectionShape = minDistance / maxDistance;
+  sectionPolygon->Delete();
 
   return sectionShape;
 }

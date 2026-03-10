@@ -34,7 +34,9 @@ set (VTK_VMTK_IO_SRCS
 
 # XXX Ensure DICOMParser directory provided by VTK is included before
 #     the one provided by ITK.
-include_directories(BEFORE ${vtkDICOMParser_INCLUDE_DIRS})
+if(DEFINED vtkDICOMParser_INCLUDE_DIRS AND vtkDICOMParser_INCLUDE_DIRS)
+  include_directories(BEFORE ${vtkDICOMParser_INCLUDE_DIRS})
+endif()
 
 vmtk_build_library(
   NAME IO
