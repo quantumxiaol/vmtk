@@ -64,26 +64,14 @@ set (VTK_VMTK_MISC_SRCS
   vtkvmtkUnstructuredGridTetraFilter.cxx
   )
 
-if (DEFINED VMTK_BUILD_TETGEN)
-  if (VMTK_BUILD_TETGEN AND VTK_VMTK_BUILD_TETGEN)
-    set (VTK_VMTK_MISC_SRCS ${VTK_VMTK_MISC_SRCS} vtkvmtkTetGenWrapper.cxx)
+if (VMTK_BUILD_TETGEN AND VTK_VMTK_BUILD_TETGEN)
+  set (VTK_VMTK_MISC_SRCS ${VTK_VMTK_MISC_SRCS} vtkvmtkTetGenWrapper.cxx)
 
-    add_definitions (-DTETLIBRARY)
-    include_directories(${TETGEN_SOURCE_DIR})
-    link_directories(${TETGEN_LIB_DIR})
+  add_definitions (-DTETLIBRARY)
+  include_directories(${TETGEN_SOURCE_DIR})
+  link_directories(${TETGEN_LIB_DIR})
 
-    set (VTK_VMTK_MISC_TARGET_LINK_LIBRARIES ${VTK_VMTK_MISC_TARGET_LINK_LIBRARIES} tet)
-  endif ()
-else ()
-  if (VTK_VMTK_BUILD_TETGEN)
-    set (VTK_VMTK_MISC_SRCS ${VTK_VMTK_MISC_SRCS} vtkvmtkTetGenWrapper.cxx)
-
-    add_definitions (-DTETLIBRARY)
-    include_directories(${TETGEN_SOURCE_DIR})
-    link_directories(${TETGEN_LIB_DIR})
-
-    set (VTK_VMTK_MISC_TARGET_LINK_LIBRARIES ${VTK_VMTK_MISC_TARGET_LINK_LIBRARIES} tet)
-  endif ()
+  set (VTK_VMTK_MISC_TARGET_LINK_LIBRARIES ${VTK_VMTK_MISC_TARGET_LINK_LIBRARIES} tet)
 endif ()
 
 if (VTK_VMTK_BUILD_STREAMTRACER)

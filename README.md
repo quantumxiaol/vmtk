@@ -23,6 +23,26 @@ Getting Started
 
 Tutorials, development instructions, and the general information is available at https://www.vmtk.org 
 
+### Python package build from source (`pip` / `uv`)
+
+`pip install git+https://github.com/vmtk/vmtk.git` now uses a PEP517 build
+backend (`scikit-build-core`) and compiles VMTK C/C++ extensions during
+installation.
+
+Notes:
+
+- Users do **not** need to set `VMTK_MODULE_INSTALL_LIB_DIR`,
+  `PYPES_MODULE_INSTALL_LIB_DIR`, `VMTK_SCRIPTS_INSTALL_LIB_DIR`,
+  `VTK_VMTK_MODULE_INSTALL_LIB_DIR`, or `VTK_VMTK_INSTALL_LIB_DIR`. These are
+  set automatically for wheel builds.
+- Runtime dependency is pinned to `vtk==9.3.0` for wheel/runtime ABI alignment.
+- Source builds require an external VTK C++ SDK (headers + `VTKConfig.cmake`);
+  Python `vtk` wheels are runtime packages and are not used as a C++ SDK here.
+- If VTK is not discoverable automatically, pass `VTK_DIR` at install time:
+  `pip install "vmtk @ git+https://github.com/vmtk/vmtk.git" --config-settings=cmake.define.VTK_DIR=/path/to/vtk-sdk/lib/cmake/vtk-9.3`
+- CI wheel builds use `cibuildwheel` and download Kitware's official VTK 9.3.0
+  SDK, then build VMTK against that SDK for deterministic binary compatibility.
+
 [Installation](http://www.vmtk.org/documentation/installation.html)
 - How to install VMTK. 
 

@@ -14,12 +14,36 @@ foreach(filename IN ITEMS
   set(dest_file "${CMAKE_CURRENT_BINARY_DIR}/${filename}")
   set(expected_hash "${${filename}_expected_hash}")
   set(url "https://raw.githubusercontent.com/Slicer/vtkAddon/${vtkAddon_version}/CMake/${filename}")
-  if(NOT EXISTS ${dest_file})
-    file(DOWNLOAD ${url} ${dest_file} EXPECTED_HASH SHA256=${expected_hash})
+
+  # Prefer local vendored copies to avoid network dependency during configure.
+  set(local_source "")
+  foreach(candidate IN ITEMS
+    "${CMAKE_CURRENT_SOURCE_DIR}/${filename}"
+    "${CMAKE_CURRENT_LIST_DIR}/${filename}"
+    "${CMAKE_CURRENT_LIST_DIR}/../vtkVmtk/Wrapping/${filename}"
+    )
+    if(EXISTS "${candidate}")
+      set(local_source "${candidate}")
+      break()
+    endif()
+  endforeach()
+
+  if(local_source)
+    file(SHA256 "${local_source}" local_hash)
+    if(NOT "${local_hash}" STREQUAL "${expected_hash}")
+      message(WARNING "Using local ${filename} with SHA256=${local_hash} "
+        "(expected ${expected_hash}).")
+    endif()
+    configure_file("${local_source}" "${dest_file}" COPYONLY)
+    continue()
+  endif()
+
+  if(NOT EXISTS "${dest_file}")
+    file(DOWNLOAD "${url}" "${dest_file}" EXPECTED_HASH SHA256="${expected_hash}")
   else()
-    file(SHA256 ${dest_file} current_hash)
-    if(NOT ${current_hash} STREQUAL ${expected_hash})
-      file(DOWNLOAD ${url} ${dest_file} EXPECTED_HASH SHA256=${expected_hash})
+    file(SHA256 "${dest_file}" current_hash)
+    if(NOT "${current_hash}" STREQUAL "${expected_hash}")
+      file(DOWNLOAD "${url}" "${dest_file}" EXPECTED_HASH SHA256="${expected_hash}")
     endif()
   endif()
 endforeach()

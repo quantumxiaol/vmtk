@@ -17,8 +17,11 @@ set(dirs
   DifferentialGeometry
   IO
   Misc
-  Segmentation
   )
+
+if (VMTK_ENABLE_SEGMENTATION)
+  list(APPEND dirs Segmentation)
+endif ()
 
 if (VMTK_USE_RENDERING)
   list(APPEND dirs Rendering)
@@ -42,7 +45,7 @@ if(APPLE)
   set(CMAKE_EXE_LINKER_FLAGS "-Wl,-dylib_file,/System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGL.dylib:/System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGL.dylib")
 endif()
 
-option(VTK_VMTK_BUILD_TETGEN "Build TetGen and TetGen wrapper. Check TetGen license before you activate this." ON)
+option(VTK_VMTK_BUILD_TETGEN "Build TetGen and TetGen wrapper. Check TetGen license before you activate this." OFF)
 
 set(_VTK_VMTK_BUILD_STREAMTRACER_DEFAULT ON)
 if(${VTK_VERSION} VERSION_GREATER_EQUAL "9.2")
@@ -81,11 +84,15 @@ include_directories (${VTK_VMTK_SOURCE_DIR}/Misc)
 if (VMTK_USE_RENDERING)
   include_directories (${VTK_VMTK_SOURCE_DIR}/Rendering)
 endif ()
-include_directories (${VTK_VMTK_SOURCE_DIR}/Segmentation)
+if (VMTK_ENABLE_SEGMENTATION)
+  include_directories (${VTK_VMTK_SOURCE_DIR}/Segmentation)
+endif ()
 if (VTK_VMTK_CONTRIB)
   include_directories (${VTK_VMTK_SOURCE_DIR}/Contrib)
 endif ()
-include_directories (${VTK_VMTK_SOURCE_DIR}/Utilities/vtkvmtkITK)
+if (VMTK_ENABLE_SEGMENTATION)
+  include_directories (${VTK_VMTK_SOURCE_DIR}/Utilities/vtkvmtkITK)
+endif ()
 include_directories (${VTK_VMTK_BINARY_DIR})
 
 set(VTK_DOXYGEN_HOME ${VTK_VMTK_SOURCE_DIR}/Utilities/Doxygen)

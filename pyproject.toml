@@ -1,0 +1,73 @@
+[build-system]
+requires = ["scikit-build-core>=0.11.0"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "vmtk"
+version = "1.5.0"
+description = "Vascular Modeling Toolkit (VMTK)"
+readme = { file = "README.md", content-type = "text/markdown" }
+requires-python = ">=3.9"
+license = { file = "LICENSE" }
+authors = [
+  { name = "Luca Antiga" },
+]
+maintainers = [
+  { name = "VMTK maintainers" },
+]
+keywords = [
+  "vascular",
+  "medical-imaging",
+  "centerlines",
+  "voronoi",
+  "vtk",
+]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Environment :: Console",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: BSD License",
+  "Operating System :: MacOS",
+  "Operating System :: Microsoft :: Windows",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: C++",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Topic :: Scientific/Engineering",
+  "Topic :: Scientific/Engineering :: Medical Science Apps.",
+  "Topic :: Scientific/Engineering :: Visualization",
+]
+dependencies = ["vtk==9.3.0"]
+
+[project.optional-dependencies]
+test = ["pytest>=8.0"]
+
+[dependency-groups]
+test = ["pytest>=8.0"]
+
+[project.urls]
+Homepage = "https://www.vmtk.org"
+Documentation = "https://www.vmtk.org/documentation/"
+Repository = "https://github.com/vmtk/vmtk"
+Issues = "https://github.com/vmtk/vmtk/issues"
+
+[tool.scikit-build]
+cmake.version = ">=3.21"
+build.verbose = true
+
+[tool.scikit-build.wheel]
+packages = []
+
+[tool.scikit-build.cmake.define]
+VMTK_USE_SUPERBUILD = "OFF"
+USE_SYSTEM_VTK = "ON"
+VMTK_ENABLE_SEGMENTATION = "OFF"
+VMTK_USE_RENDERING = "OFF"
+VMTK_BUILD_TETGEN = "OFF"
+VMTK_CONTRIB_SCRIPTS = "ON"
+VTK_VMTK_CONTRIB = "OFF"
+VMTK_SCRIPTS_ENABLED = "ON"
+VTK_VMTK_WRAP_PYTHON = "ON"
+VTK_WRAP_PYTHON = "ON"
+BUILD_SHARED_LIBS = "ON"
+VMTK_BUILD_TESTING = "OFF"

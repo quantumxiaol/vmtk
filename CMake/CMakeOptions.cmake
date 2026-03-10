@@ -18,7 +18,7 @@ endif ()
 #
 # Try to find ITK and include its settings (otherwise complain)
 #
-if ( NOT ITK_FOUND )
+if (VMTK_ENABLE_SEGMENTATION AND NOT ITK_FOUND )
   find_package(ITK REQUIRED)
   include(${ITK_USE_FILE})
 endif ()

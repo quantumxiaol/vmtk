@@ -101,6 +101,47 @@ class Pype(object):
         self.OutputStream.write(errorMessage + '\n')
         raise RuntimeError(errorMessage)
 
+    def _GetDisabledDependencyHint(self, scriptName, importError):
+        script_name = scriptName.lower()
+        error_text = str(importError).lower()
+
+        if (
+            'tetgen' in error_text
+            or 'tetgen' in script_name
+            or 'tetrin' in script_name
+        ):
+            return (
+                "script '%s' depends on TetGen support, but TetGen is disabled "
+                "in this build."
+            ) % scriptName
+
+        if (
+            'vtkvmtkrendering' in error_text
+            or 'vmtkrenderer' in error_text
+            or script_name in ['vmtkrenderer', 'vmtkrendertoimage', 'vmtknetworkeditor']
+            or script_name.endswith('viewer')
+            or script_name.endswith('seeder')
+        ):
+            return (
+                "script '%s' depends on Rendering support, but rendering is "
+                "disabled in this build."
+            ) % scriptName
+
+        if (
+            'vtkvmtksegmentation' in error_text
+            or 'vtkvmtkitk' in error_text
+            or "no module named 'itk'" in error_text
+            or script_name.startswith('vmtkimage')
+            or script_name.startswith('vmtklevelset')
+            or script_name in ['vmtkactivetubes', 'vmtkpotentialfit']
+        ):
+            return (
+                "script '%s' depends on Segmentation/ITK support, but "
+                "Segmentation/ITK is disabled in this build."
+            ) % scriptName
+
+        return ''
+
     def SetArgumentsString(self,argumentsString):
         ''' Splits an input string into a list containing the class name and arguments.
 
@@ -295,7 +336,11 @@ class Pype(object):
                 scriptObjectClasses = [x for x in dir(module) if isclass(getattr(module, x)) and issubclass(getattr(module, x), pypes.pypeScript)]
                 scriptObjectClassName = scriptObjectClasses[0]
             except ImportError as e:
-                self.PrintError(str(e))
+                hint = self._GetDisabledDependencyHint(scriptName, e)
+                error_message = str(e)
+                if hint:
+                    error_message = error_message + '\n' + hint
+                self.PrintError(error_message)
                 break
             scriptObject = getattr(module, scriptObjectClassName)
             scriptObject = scriptObject()
