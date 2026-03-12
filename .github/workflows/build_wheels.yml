@@ -30,6 +30,9 @@ jobs:
           CIBW_BUILD: "cp310-* cp311-* cp312-*"
           CIBW_SKIP: "*musllinux*"
           CIBW_BUILD_VERBOSITY: "1"
+          CIBW_REPAIR_WHEEL_COMMAND_MACOS: >
+            DYLD_LIBRARY_PATH="$(python -c 'from pathlib import Path; import site, importlib.util, sys; spec=importlib.util.find_spec("vtkmodules"); candidates=[]; candidates += [Path(spec.origin).resolve().parent/".dylibs", Path(spec.origin).resolve().parent] if spec else []; [candidates.extend([Path(sp)/"vtkmodules"/".dylibs", Path(sp)/"vtkmodules", Path(sp)/"lib"]) for sp in site.getsitepackages()]; found=next((p for p in candidates if p.exists() and any(p.glob("libvtk*.dylib"))), None); print(found if found else ""); sys.exit(0 if found else "VTK dylib path not found")')"
+            delocate-wheel --require-archs {delocate_archs} -w {dest_dir} -v {wheel}
           CIBW_ENVIRONMENT_MACOS: >
             CMAKE_ARGS="-DUSE_SYSTEM_VTK=ON"
 

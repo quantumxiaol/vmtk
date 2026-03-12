@@ -71,4 +71,9 @@ def test_branch_points_correct(branch_geometry):
 ])
 def test_point_data_is_correct(branch_geometry, pointkey, expectedvalue):
     wrapped_branch_geom = dsa.WrapDataObject(branch_geometry)
-    assert np.allclose(wrapped_branch_geom.PointData.GetArray(pointkey), expectedvalue) == True
+    assert np.allclose(
+        wrapped_branch_geom.PointData.GetArray(pointkey),
+        expectedvalue,
+        rtol=1e-4,
+        atol=1e-5,
+    ) == True

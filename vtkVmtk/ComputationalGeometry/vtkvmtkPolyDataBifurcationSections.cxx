@@ -589,13 +589,34 @@ void vtkvmtkPolyDataBifurcationSections::ComputeBifurcationSections(vtkPolyData*
     bool closed = false;
     vtkvmtkPolyDataBranchSections::ExtractCylinderSection(cylinder,averagePoint,averageTangent,section,closed);
 
-    section->BuildCells();
-    vtkPoints* sectionCellPoints = section->GetCell(0)->GetPoints();
-    int numberOfSectionCellPoints = sectionCellPoints->GetNumberOfPoints();
+    vtkCellArray* sectionPolys = section->GetPolys();
+    vtkIdList* sectionPointIds = vtkIdList::New();
+    if (!sectionPolys)
+      {
+      sectionPointIds->Delete();
+      groupCellIds->Delete();
+      cylinder->Delete();
+      section->Delete();
+      continue;
+      }
+
+    sectionPolys->InitTraversal();
+    if (!sectionPolys->GetNextCell(sectionPointIds) || sectionPointIds->GetNumberOfIds() == 0)
+      {
+      sectionPointIds->Delete();
+      groupCellIds->Delete();
+      cylinder->Delete();
+      section->Delete();
+      continue;
+      }
+
+    int numberOfSectionCellPoints = sectionPointIds->GetNumberOfIds();
     outputPolys->InsertNextCell(numberOfSectionCellPoints);
     for (j=0; j<numberOfSectionCellPoints; j++)
     {
-      vtkIdType pointId = outputPoints->InsertNextPoint(sectionCellPoints->GetPoint(j));
+      double sectionPoint[3];
+      section->GetPoint(sectionPointIds->GetId(j),sectionPoint);
+      vtkIdType pointId = outputPoints->InsertNextPoint(sectionPoint);
       outputPolys->InsertCellPoint(pointId);
     }
     
@@ -616,6 +637,7 @@ void vtkvmtkPolyDataBifurcationSections::ComputeBifurcationSections(vtkPolyData*
     bifurcationSectionOrientationArray->InsertNextValue(bifurcationSectionOrientation);
     bifurcationSectionDistanceSpheresArray->InsertNextValue(this->NumberOfDistanceSpheres);
 
+    sectionPointIds->Delete();
     groupCellIds->Delete();
     cylinder->Delete();
     section->Delete();

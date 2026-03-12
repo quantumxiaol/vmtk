@@ -261,7 +261,16 @@ class vmtkImageReader(pypes.pypeScript):
                 if extension in list(extensionFormats.keys()):
                     self.Format = extensionFormats[extension]
 
-        if self.UseITKIO and self.InputFileName and self.Format not in ['vtkxml','vtk','raw']:
+        use_itk_reader = self.UseITKIO and self.InputFileName and self.Format not in ['vtkxml','vtk','raw']
+        itk_reader_available = hasattr(vtkvmtk, 'vtkvmtkITKArchetypeImageSeriesScalarReader')
+
+        if use_itk_reader and not itk_reader_available:
+            if self.Format == 'dicom':
+                self.PrintError('Error: DICOM reading requires ITKIO wrappers, which are disabled in this build.')
+            self.PrintLog('ITKIO wrappers are unavailable; falling back to VTK image readers.')
+            use_itk_reader = False
+
+        if use_itk_reader:
             self.ReadITKIO()
         else:
             if self.Format == 'vtkxml':

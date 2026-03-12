@@ -27,7 +27,8 @@ def test_import_vtkvmtk_optional_groups_are_self_consistent():
     from vmtk import vtkvmtk
 
     # Segmentation classes are optional in dependency-minimized builds.
-    if hasattr(vtkvmtk, 'vtkvmtkLevelSetSigmoidFilter'):
+    # Use segmentation-owned symbols as probes (LevelSetSigmoid lives in Misc).
+    if hasattr(vtkvmtk, 'vtkvmtkOtsuMultipleThresholdsImageFilter'):
         assert hasattr(vtkvmtk, 'vtkvmtkAnisotropicDiffusionImageFilter')
 
     # Rendering classes are optional in headless builds.

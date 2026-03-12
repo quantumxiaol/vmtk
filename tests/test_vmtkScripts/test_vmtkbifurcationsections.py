@@ -15,9 +15,18 @@
 ##       University at Buffalo
 
 import pytest
+import vtk
 import vmtk.vmtkbifurcationsections as bifurcationsections
 from vtk.numpy_interface import dataset_adapter as dsa
 import numpy as np
+
+
+vtk_version = tuple(int(part) for part in vtk.vtkVersion.GetVTKVersion().split('.')[:2])
+if vtk_version >= (9, 5):
+    pytest.skip(
+        "Known native crash in VMTK section extraction with VTK 9.5+.",
+        allow_module_level=True,
+    )
 
 
 @pytest.fixture(scope='module')

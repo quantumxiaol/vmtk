@@ -15,8 +15,16 @@
 ##       University at Buffalo
 
 import pytest
+from vmtk import vtkvmtk
 import vmtk.vmtkcenterlineimage as centerlineimage
 import sys
+
+
+if not hasattr(vtkvmtk, 'vtkvmtkMedialCurveFilter'):
+    pytest.skip(
+        "Segmentation wrapper support is disabled in this build.",
+        allow_module_level=True,
+    )
 
 
 @pytest.fixture(scope='module')

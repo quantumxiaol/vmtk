@@ -15,9 +15,13 @@
 ##       University at Buffalo
 
 import pytest
+from vmtk import vtkvmtk
 import vmtk.vmtkimageinitialization as imageinitialization
 
 #TODO: How do we test interaction?
+
+HAS_FAST_MARCHING = hasattr(vtkvmtk, 'vtkvmtkFastMarchingUpwindGradientImageFilter')
+HAS_COLLIDING_FRONTS = hasattr(vtkvmtk, 'vtkvmtkCollidingFrontsImageFilter')
 
 
 @pytest.fixture()
@@ -109,6 +113,10 @@ def test_isosurface_initialization_output_isosurface_value(aorta_image):
     assert initializer.IsoSurfaceValue == 0
 
 
+@pytest.mark.skipif(
+    not HAS_FAST_MARCHING,
+    reason='Fast marching wrapper support is disabled in this build.',
+)
 def test_fastmarching_initialization_output_level_sets(aorta_image, compare_images,
                                                        fast_marching_source_points,
                                                        fast_marching_target_points):
@@ -125,6 +133,10 @@ def test_fastmarching_initialization_output_level_sets(aorta_image, compare_imag
     assert compare_images(initializer.InitialLevelSets, name) == True
 
 
+@pytest.mark.skipif(
+    not HAS_COLLIDING_FRONTS,
+    reason='Colliding fronts wrapper support is disabled in this build.',
+)
 def test_collidingfronts_initialization_output_level_sets(aorta_image, compare_images,
                                                           colliding_fronts_source_points,
                                                           colliding_fronts_target_points):

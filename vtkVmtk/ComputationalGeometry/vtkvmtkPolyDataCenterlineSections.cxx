@@ -299,14 +299,31 @@ void vtkvmtkPolyDataCenterlineSections::ComputeCenterlineSections(vtkPolyData* i
     bool closed = false;
     vtkvmtkPolyDataBranchSections::ExtractCylinderSection(input,point,tangent,section,closed);
 
-    section->BuildCells();
-    vtkPoints* sectionCellPoints = section->GetCell(0)->GetPoints();
-    int numberOfSectionCellPoints = sectionCellPoints->GetNumberOfPoints();
+    vtkCellArray* sectionPolys = section->GetPolys();
+    vtkIdList* sectionPointIds = vtkIdList::New();
+    if (!sectionPolys)
+      {
+      sectionPointIds->Delete();
+      section->Delete();
+      continue;
+      }
+
+    sectionPolys->InitTraversal();
+    if (!sectionPolys->GetNextCell(sectionPointIds) || sectionPointIds->GetNumberOfIds() == 0)
+      {
+      sectionPointIds->Delete();
+      section->Delete();
+      continue;
+      }
+
+    int numberOfSectionCellPoints = sectionPointIds->GetNumberOfIds();
     centerlineSectionPolys->InsertNextCell(numberOfSectionCellPoints);
     int k;
     for (k=0; k<numberOfSectionCellPoints; k++)
     {
-      vtkIdType branchPointId = centerlineSectionPoints->InsertNextPoint(sectionCellPoints->GetPoint(k));
+      double sectionPoint[3];
+      section->GetPoint(sectionPointIds->GetId(k),sectionPoint);
+      vtkIdType branchPointId = centerlineSectionPoints->InsertNextPoint(sectionPoint);
       centerlineSectionPolys->InsertCellPoint(branchPointId);
     }
     
@@ -327,6 +344,7 @@ void vtkvmtkPolyDataCenterlineSections::ComputeCenterlineSections(vtkPolyData* i
     centerlineShapeArray->InsertValue(pointId,shape);
     centerlineClosedArray->InsertValue(pointId,closed);
 
+    sectionPointIds->Delete();
     section->Delete();
   }  
 }

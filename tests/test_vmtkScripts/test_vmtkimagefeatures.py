@@ -15,7 +15,18 @@
 ##       University at Buffalo
 
 import pytest
+from vmtk import vtkvmtk
 import vmtk.vmtkimagefeatures as imagefeatures
+
+
+if (
+    not hasattr(vtkvmtk, 'vtkvmtkGradientMagnitudeImageFilter')
+    or not hasattr(vtkvmtk, 'vtkvmtkUpwindGradientMagnitudeImageFilter')
+):
+    pytest.skip(
+        "Segmentation image feature wrappers are disabled in this build.",
+        allow_module_level=True,
+    )
 
 
 #TODO: WHY DOES "fwhm" seg fault?

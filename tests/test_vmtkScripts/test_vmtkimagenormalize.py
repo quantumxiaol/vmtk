@@ -15,7 +15,15 @@
 ##       University at Buffalo
 
 import pytest
+from vmtk import vtkvmtk
 import vmtk.vmtkimagenormalize as norm
+
+
+if not hasattr(vtkvmtk, 'vtkvmtkNormalizeImageFilter'):
+    pytest.skip(
+        "Image normalize wrappers are disabled in this build.",
+        allow_module_level=True,
+    )
 
 
 def test_normalize_image(aorta_image, compare_images):
