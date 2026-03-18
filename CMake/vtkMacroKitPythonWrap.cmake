@@ -160,8 +160,15 @@ macro(vtkMacroKitPythonWrap)
 
   if(VTK_WRAP_PYTHON AND BUILD_SHARED_LIBS)
 
-    # Tell vtkWrapPython.cmake to set VTK_Python3_LIBRARIES for us.
-    set(VTK_WRAP_PYTHON_FIND_LIBS 1)
+    # VTK >= 8.90 links Python wrapper modules through VTK targets and does
+    # not use VTK_Python3_LIBRARIES directly. manylinux Python builds often
+    # omit Development.Embed/libpython, so avoid probing embed libs unless we
+    # are on the legacy (<8.90) wrapping path where this variable is needed.
+    if(${VTK_VERSION} VERSION_LESS "8.90")
+      set(VTK_WRAP_PYTHON_FIND_LIBS 1)
+    else()
+      set(VTK_WRAP_PYTHON_FIND_LIBS 0)
+    endif()
     include(vtkWrapPython)
 
     set(TMP_WRAP_FILES ${MY_KIT_SRCS} ${MY_KIT_WRAP_HEADERS})
