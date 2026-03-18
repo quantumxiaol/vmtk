@@ -17,6 +17,10 @@ jobs:
     strategy:
       matrix:
         include:
+          - os: ubuntu-22.04
+            cibw_arch: x86_64
+          - os: ubuntu-24.04
+            cibw_arch: x86_64
           - os: macos-14
             cibw_arch: arm64
 
@@ -39,11 +43,18 @@ jobs:
             exit "$rc"
           CIBW_BEFORE_BUILD_MACOS: >
             python -m pip install "vtk==9.5.0"
+          CIBW_BEFORE_BUILD_LINUX: >
+            python -m pip install "vtk==9.5.0"
           CIBW_REPAIR_WHEEL_COMMAND_MACOS: >
             DYLD_LIBRARY_PATH="$(python -c 'from pathlib import Path; import site, importlib.util, sys; spec=importlib.util.find_spec("vtkmodules"); candidates=[]; candidates += [Path(spec.origin).resolve().parent/".dylibs", Path(spec.origin).resolve().parent] if spec else []; [candidates.extend([Path(sp)/"vtkmodules"/".dylibs", Path(sp)/"vtkmodules", Path(sp)/"lib"]) for sp in site.getsitepackages()]; found=next((p for p in candidates if p.exists() and any(p.glob("libvtk*.dylib"))), None); print(found if found else ""); sys.exit(0 if found else "VTK dylib path not found")')"
             delocate-wheel --require-archs {delocate_archs} -w {dest_dir} -v {wheel}
             && python tools/patch_macos_wheel_runtime.py "{dest_dir}/$(basename {wheel})"
+          CIBW_REPAIR_WHEEL_COMMAND_LINUX: >
+            python tools/patch_wheel_vendor_vtk.py "{wheel}"
+            && auditwheel repair -w {dest_dir} {wheel}
           CIBW_ENVIRONMENT_MACOS: >
+            CMAKE_ARGS="-DUSE_SYSTEM_VTK=ON"
+          CIBW_ENVIRONMENT_LINUX: >
             CMAKE_ARGS="-DUSE_SYSTEM_VTK=ON"
 
       - name: Upload wheels artifact
