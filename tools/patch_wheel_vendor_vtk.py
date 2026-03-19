@@ -12,6 +12,7 @@ import argparse
 import base64
 import csv
 import hashlib
+import os
 import re
 import shutil
 import sys
@@ -30,6 +31,33 @@ def parse_wheel_python_version(wheel_path: Path) -> tuple[int, int]:
     major = int(tag[0])
     minor = int(tag[1:])
     return major, minor
+
+
+def _find_vtk_sdk_payload(expected_py: tuple[int, int]) -> tuple[Path, Path] | None:
+    major, minor = expected_py
+    py_tag = f"{major}{minor}"
+    wrapping_lib = f"libvtkWrappingPythonCore{major}.{minor}.so"
+
+    candidates: list[Path] = []
+    env_root = os.environ.get("VMTK_VTK_SDK_ROOT", "").strip()
+    if env_root:
+        candidates.append(Path(env_root))
+    candidates.append(Path(f"/tmp/vmtk-vtk-sdk/linux-cp{py_tag}-x86_64"))
+
+    for root in candidates:
+        if not root.exists():
+            continue
+        vtk_py = root / "vtk.py"
+        vtkmodules_dir = root / "vtkmodules"
+        if not vtk_py.is_file() or not vtkmodules_dir.is_dir():
+            continue
+
+        lib_roots = sorted(root.glob(f"build/lib.*-cpython-{py_tag}/vtkmodules"))
+        for lib_root in lib_roots:
+            if (lib_root / wrapping_lib).is_file():
+                return root, lib_root.relative_to(root)
+
+    return None
 
 
 def vendor_vtk_payload(root: Path, *, expected_py: tuple[int, int]) -> list[Path]:
@@ -54,6 +82,30 @@ def vendor_vtk_payload(root: Path, *, expected_py: tuple[int, int]) -> list[Path
 
     copied: list[Path] = []
 
+    # Prefer SDK payload when available (Linux CI path). This keeps the runtime
+    # layout consistent with the libraries VMTK linked against at build time.
+    sdk_payload = _find_vtk_sdk_payload(expected_py)
+    if sdk_payload is not None:
+        sdk_root, sdk_rel_lib_dir = sdk_payload
+
+        vtk_py_dest = bundle_dir / "vtk.py"
+        shutil.copy2(sdk_root / "vtk.py", vtk_py_dest)
+        copied.append(vtk_py_dest)
+
+        vtkmodules_dest = bundle_dir / "vtkmodules"
+        if vtkmodules_dest.exists():
+            shutil.rmtree(vtkmodules_dest)
+        shutil.copytree(sdk_root / "vtkmodules", vtkmodules_dest)
+        copied.append(vtkmodules_dest)
+
+        sdk_lib_dest = bundle_dir / sdk_rel_lib_dir
+        if sdk_lib_dest.exists():
+            shutil.rmtree(sdk_lib_dest)
+        sdk_lib_dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(sdk_root / sdk_rel_lib_dir, sdk_lib_dest)
+        copied.append(sdk_lib_dest)
+        return copied
+
     vtk_py_dest = bundle_dir / "vtk.py"
     shutil.copy2(vtk_py_src, vtk_py_dest)
     copied.append(vtk_py_dest)
@@ -64,14 +116,19 @@ def vendor_vtk_payload(root: Path, *, expected_py: tuple[int, int]) -> list[Path
     shutil.copytree(vtkmodules_src, vtkmodules_dest)
     copied.append(vtkmodules_dest)
 
-    # Linux VTK wheels often store shared libs in a sibling "vtk.libs" folder.
-    vtk_libs_src = vtk_py_src.parent / "vtk.libs"
-    if vtk_libs_src.exists():
-        vtk_libs_dest = bundle_dir / "vtk.libs"
-        if vtk_libs_dest.exists():
-            shutil.rmtree(vtk_libs_dest)
-        shutil.copytree(vtk_libs_src, vtk_libs_dest)
-        copied.append(vtk_libs_dest)
+    # Linux VTK wheels may store shared libs in different companion folders.
+    for src in (
+        vtk_py_src.parent / "vtk.libs",
+        vtk_py_src.parent / "vtkmodules.libs",
+        vtkmodules_src / ".libs",
+    ):
+        if not src.exists():
+            continue
+        dest = bundle_dir / src.name
+        if dest.exists():
+            shutil.rmtree(dest)
+        shutil.copytree(src, dest)
+        copied.append(dest)
 
     return copied
 
