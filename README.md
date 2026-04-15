@@ -36,13 +36,31 @@ Notes:
   `VTK_VMTK_MODULE_INSTALL_LIB_DIR`, or `VTK_VMTK_INSTALL_LIB_DIR`. These are
   set automatically for wheel builds.
 - Runtime dependency is pinned to `vtk==9.5.0` for ABI alignment.
-- Build dependency uses `vtk-sdk==9.5.0` via PEP517 build isolation, so
-  `pip/uv` source installs do not require manual `brew/apt` VTK setup in the
-  common path.
+- macOS build isolation uses `vtk-sdk==9.5.0`.
+- Linux source builds auto-stage the matching official VTK wheel SDK
+  (`tools/prepare_linux_vtk_sdk.py`) when `VTK_DIR` is not provided.
+- `pip install git+...` no longer initializes the `tests/vmtk-test-data`
+  submodule by default (`.gitmodules` uses `update = none`), avoiding
+  unnecessary test-data checkout during package install.
 - If you intentionally build against a custom/system VTK SDK, pass `VTK_DIR`:
   `pip install "vmtk @ git+https://github.com/vmtk/vmtk.git" --config-settings=cmake.define.VTK_DIR=/path/to/vtk/lib/cmake/vtk-9.5`
-- CI wheel builds (`cibuildwheel`) rely on the same pinned `vtk-sdk` build
-  dependency to keep build/runtime toolchains aligned.
+- CI wheel builds (`cibuildwheel`) pin VTK `9.5.0` and use a matching SDK
+  payload to keep build/runtime toolchains aligned.
+
+Quick smoke test after install:
+
+```
+python - <<'PY'
+import vmtk
+from vmtk import vtkvmtk
+assert hasattr(vtkvmtk, "vtkvmtkPolyDataCenterlines")
+print("vmtk:", vmtk.__file__)
+print("vtkvmtk OK")
+PY
+
+vmtk --help
+vmtkimagereader --help
+```
 
 [Installation](http://www.vmtk.org/documentation/installation.html)
 - How to install VMTK. 

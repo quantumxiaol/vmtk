@@ -79,6 +79,13 @@ if(DEFINED SKBUILD)
   set(BUILD_SHARED_LIBS ON CACHE BOOL "" FORCE)
   # Keep contrib python scripts to maximize compute utilities (numpy converters, etc.).
   set(VMTK_CONTRIB_SCRIPTS ON CACHE BOOL "" FORCE)
+  # Install CLI launchers to wheel "scripts" so pip puts them on PATH.
+  if(SKBUILD_SCRIPTS_DIR)
+    set(VMTK_INSTALL_BIN_DIR "${SKBUILD_SCRIPTS_DIR}" CACHE STRING "" FORCE)
+    set(PYPES_INSTALL_BIN_DIR "${SKBUILD_SCRIPTS_DIR}" CACHE STRING "" FORCE)
+    set(VMTK_SCRIPTS_INSTALL_BIN_DIR "${SKBUILD_SCRIPTS_DIR}" CACHE STRING "" FORCE)
+    set(VTK_VMTK_INSTALL_BIN_DIR "${SKBUILD_SCRIPTS_DIR}" CACHE STRING "" FORCE)
+  endif()
   set(VMTK_INSTALL_LIB_DIR "vmtk" CACHE STRING "" FORCE)
   set(VMTK_MODULE_INSTALL_LIB_DIR "vmtk" CACHE STRING "" FORCE)
   set(PYPES_MODULE_INSTALL_LIB_DIR "vmtk" CACHE STRING "" FORCE)
@@ -108,6 +115,53 @@ set(VMTK_RENDERING_BACKEND "OpenGL2" CACHE STRING "Graphic backend for VTK")
 # VTK setup
 option( USE_SYSTEM_VTK
   "Exclude VTK from SuperBuild and use an existing build instead." OFF )
+
+# For Linux PEP517 source builds, the PyPI vtk runtime wheel does not provide
+# vtk-config.cmake. Auto-stage the official wheel SDK when VTK_DIR is not set.
+if(DEFINED SKBUILD AND UNIX AND NOT APPLE AND USE_SYSTEM_VTK)
+  set(_vmtk_env_vtk_dir "$ENV{VTK_DIR}")
+  if(NOT VTK_DIR AND NOT _vmtk_env_vtk_dir)
+    set(_vmtk_linux_arch "${CMAKE_SYSTEM_PROCESSOR}")
+    if(_vmtk_linux_arch STREQUAL "amd64")
+      set(_vmtk_linux_arch "x86_64")
+    endif()
+
+    set(_vmtk_linux_sdk_root "$ENV{VMTK_VTK_SDK_ROOT}")
+    if(NOT _vmtk_linux_sdk_root)
+      set(_vmtk_linux_sdk_root "/tmp/vmtk-vtk-sdk/linux-cp${PYTHON_VERSION_MAJOR}${PYTHON_VERSION_MINOR}-${_vmtk_linux_arch}")
+    endif()
+
+    execute_process(
+      COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/prepare_linux_vtk_sdk.py"
+              --target-root "${_vmtk_linux_sdk_root}"
+      RESULT_VARIABLE _vmtk_prepare_sdk_rc
+      OUTPUT_VARIABLE _vmtk_prepare_sdk_out
+      ERROR_VARIABLE _vmtk_prepare_sdk_err
+    )
+    if(NOT _vmtk_prepare_sdk_rc EQUAL 0)
+      message(FATAL_ERROR
+        "Failed to prepare Linux VTK SDK for source build.\n"
+        "stdout:\n${_vmtk_prepare_sdk_out}\n"
+        "stderr:\n${_vmtk_prepare_sdk_err}\n"
+        "Set VTK_DIR manually to continue."
+      )
+    endif()
+
+    set(_vmtk_auto_vtk_dir "${_vmtk_linux_sdk_root}/vtk-9.5.0.data/headers/cmake")
+    if(NOT EXISTS "${_vmtk_auto_vtk_dir}/vtk-config.cmake")
+      message(FATAL_ERROR
+        "Linux VTK SDK prepared, but vtk-config.cmake was not found at:\n"
+        "  ${_vmtk_auto_vtk_dir}\n"
+        "Set VTK_DIR manually."
+      )
+    endif()
+
+    set(VTK_DIR "${_vmtk_auto_vtk_dir}" CACHE PATH "Auto-detected VTK_DIR for Linux wheel/source build." FORCE)
+    list(PREPEND CMAKE_PREFIX_PATH "${_vmtk_linux_sdk_root}")
+    message(STATUS "Using auto-prepared Linux VTK SDK root: ${_vmtk_linux_sdk_root}")
+  endif()
+endif()
+
 if( USE_SYSTEM_VTK )
   find_package( VTK REQUIRED )
   if( ${VTK_VERSION_MAJOR} LESS 6 )
@@ -266,7 +320,11 @@ set(VMTK_MODULE_SRCS
    )
 
 if(NOT VMTK_INSTALL_BIN_DIR)
-  set(VMTK_INSTALL_BIN_DIR bin)
+  if(DEFINED SKBUILD AND SKBUILD_SCRIPTS_DIR)
+    set(VMTK_INSTALL_BIN_DIR "${SKBUILD_SCRIPTS_DIR}")
+  else()
+    set(VMTK_INSTALL_BIN_DIR bin)
+  endif()
 endif()
 
 if(NOT VMTK_INSTALL_LIB_DIR)
