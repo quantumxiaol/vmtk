@@ -155,6 +155,47 @@ def _prune_x11_dependent_binaries(bundle_dir: Path) -> list[Path]:
     return removed
 
 
+def _module_exists(vtkmodules_dir: Path, module_name: str) -> bool:
+    rel = module_name.replace(".", "/")
+    base = vtkmodules_dir / rel
+    if base.is_dir() and (base / "__init__.py").exists():
+        return True
+    if base.with_suffix(".py").is_file():
+        return True
+    if base.with_suffix(".so").is_file():
+        return True
+    if any(base.parent.glob(f"{base.name}*.so")):
+        return True
+    return False
+
+
+def _patch_vtk_py_imports(bundle_dir: Path) -> list[str]:
+    vtk_py = bundle_dir / "vtk.py"
+    vtkmodules_dir = bundle_dir / "vtkmodules"
+    if not vtk_py.is_file() or not vtkmodules_dir.is_dir():
+        return []
+
+    lines = vtk_py.read_text(encoding="utf-8").splitlines()
+    kept: list[str] = []
+    removed_modules: list[str] = []
+    pattern = re.compile(r"^from\s+vtkmodules\.([A-Za-z0-9_.]+)\s+import\s+\*$")
+
+    for line in lines:
+        match = pattern.match(line.strip())
+        if not match:
+            kept.append(line)
+            continue
+        module_name = match.group(1)
+        if _module_exists(vtkmodules_dir, module_name):
+            kept.append(line)
+            continue
+        removed_modules.append(module_name)
+
+    if removed_modules:
+        vtk_py.write_text("\n".join(kept) + "\n", encoding="utf-8")
+    return removed_modules
+
+
 def vendor_vtk_payload(root: Path, *, expected_py: tuple[int, int]) -> list[Path]:
     if sys.version_info[:2] != expected_py:
         raise RuntimeError(
@@ -203,6 +244,9 @@ def vendor_vtk_payload(root: Path, *, expected_py: tuple[int, int]) -> list[Path
         pruned = _prune_x11_dependent_binaries(bundle_dir)
         for path in pruned:
             print(f"[vendor-vtk] pruned x11-dependent binary: {path}")
+        dropped_imports = _patch_vtk_py_imports(bundle_dir)
+        for module_name in dropped_imports:
+            print(f"[vendor-vtk] patched vtk.py import: vtkmodules.{module_name}")
         return copied
 
     vtk_py_dest = bundle_dir / "vtk.py"
@@ -232,6 +276,9 @@ def vendor_vtk_payload(root: Path, *, expected_py: tuple[int, int]) -> list[Path
     pruned = _prune_x11_dependent_binaries(bundle_dir)
     for path in pruned:
         print(f"[vendor-vtk] pruned x11-dependent binary: {path}")
+    dropped_imports = _patch_vtk_py_imports(bundle_dir)
+    for module_name in dropped_imports:
+        print(f"[vendor-vtk] patched vtk.py import: vtkmodules.{module_name}")
 
     return copied
 
