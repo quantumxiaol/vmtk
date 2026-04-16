@@ -310,7 +310,13 @@ class vmtkRenderer(pypes.pypeScript):
             #if 'vtkCocoaRenderWindowInteractor' in dir(vtk) and vtk.vtkCocoaRenderWindowInteractor.SafeDownCast(self.RenderWindowInteractor):
             #    self.RenderWindowInteractor = vtkvmtk.vtkvmtkCocoaRenderWindowInteractor()
             self.RenderWindow.SetInteractor(self.RenderWindowInteractor)
-            self.RenderWindowInteractor.SetInteractorStyle(vtkvmtk.vtkvmtkInteractorStyleTrackballCamera())
+            interactor_style_factory = getattr(vtkvmtk, 'vtkvmtkInteractorStyleTrackballCamera', None)
+            if interactor_style_factory is not None:
+                interactor_style = interactor_style_factory()
+            else:
+                interactor_style = vtk.vtkInteractorStyleTrackballCamera()
+                self.PrintLog('vmtkRenderer warning: vtkvmtkInteractorStyleTrackballCamera not available; using vtkInteractorStyleTrackballCamera fallback.')
+            self.RenderWindowInteractor.SetInteractorStyle(interactor_style)
             self.RenderWindowInteractor.GetInteractorStyle().KeyPressActivationOff()
             self.RenderWindowInteractor.GetInteractorStyle().AddObserver("CharEvent",self.CharCallback)
             self.RenderWindowInteractor.GetInteractorStyle().AddObserver("KeyPressEvent",self.KeyPressCallback)

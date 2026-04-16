@@ -259,12 +259,61 @@ class vmtkOpenProfilesSeedSelector(vmtkSeedSelector):
         self.vmtkRenderer = None
         self.OwnRenderer = 0
         self.Script = None
+        self.Interactive = 1
+        self.SourceIds = []
+        self.TargetIds = []
 
     def SetSeedIds(self,seedIds):
         self._SeedIds = seedIds
 
     def GetSeedIds(self):
         return self._SeedIds
+
+    def _safe_print_log(self, message):
+        if self.PrintLog:
+            self.PrintLog(message)
+
+    def _set_seed_ids_noninteractive(self):
+        number_of_profiles = self._SeedIds.GetNumberOfIds()
+        if number_of_profiles == 0:
+            self.PrintError(
+                'vmtkOpenProfilesSeedSelector Error: no open profiles available on capped surface. '
+                'Use an open-ended surface with seedselector=openprofiles, or switch to seedselector=idlist/pointlist for closed surfaces.'
+            )
+            return
+
+        source_ids = list(self.SourceIds) if self.SourceIds else [0]
+        if not self.SourceIds:
+            self._safe_print_log('OpenProfiles seed selector: no sourceids provided; defaulting to source profile id 0.')
+
+        for source_id in source_ids:
+            if source_id < 0 or source_id >= number_of_profiles:
+                self.PrintError('vmtkOpenProfilesSeedSelector Error: invalid SourceId.')
+                return
+            if self._SourceSeedIds.IsId(source_id) == -1:
+                self._SourceSeedIds.InsertNextId(source_id)
+
+        if self.TargetIds:
+            target_ids = list(self.TargetIds)
+        else:
+            target_ids = []
+            for profile_id in range(number_of_profiles):
+                if self._SourceSeedIds.IsId(profile_id) == -1:
+                    target_ids.append(profile_id)
+            self._safe_print_log('OpenProfiles seed selector: no targetids provided; using all non-source profiles as targets.')
+
+        for target_id in target_ids:
+            if target_id < 0 or target_id >= number_of_profiles:
+                self.PrintError('vmtkOpenProfilesSeedSelector Error: invalid TargetId.')
+                return
+            if self._SourceSeedIds.IsId(target_id) != -1:
+                continue
+            if self._TargetSeedIds.IsId(target_id) == -1:
+                self._TargetSeedIds.InsertNextId(target_id)
+
+        if self._TargetSeedIds.GetNumberOfIds() == 0:
+            self.PrintError('vmtkOpenProfilesSeedSelector Error: no target profiles selected.')
+            return
 
     def Execute(self):
 
@@ -279,9 +328,14 @@ class vmtkOpenProfilesSeedSelector(vmtkSeedSelector):
         self._SourceSeedIds.Initialize()
         self._TargetSeedIds.Initialize()
 
+        if not self.Interactive:
+            self._set_seed_ids_noninteractive()
+            return
+
         if not self.vmtkRenderer:
             if vmtkrenderer is None:
-                self.PrintError('vmtkOpenProfilesSeedSelector Error: rendering support is disabled in this build.')
+                self._safe_print_log('OpenProfiles seed selector: rendering support unavailable; falling back to non-interactive seed selection.')
+                self._set_seed_ids_noninteractive()
                 return
             self.vmtkRenderer = vmtkrenderer.vmtkRenderer()
             self.vmtkRenderer.Initialize()
@@ -482,6 +536,7 @@ class vmtkCenterlines(pypes.pypeScript):
         self.vmtkRenderer = None
         self.OwnRenderer = 0
         self.StopFastMarchingOnReachingTarget = 0
+        self.OpenProfilesInteractive = 0
 
         self.SetScriptName('vmtkcenterlines')
         self.SetScriptDoc('compute centerlines from a branching tubular surface (see papers for details); seed points can be interactively selected on the surface, or specified as the barycenters of the open boundaries of the surface; if vmtk is compiled with support for TetGen, TetGen can be employed to compute the Delaunay tessellation of the input points')
@@ -506,6 +561,7 @@ class vmtkCenterlines(pypes.pypeScript):
             ['UseTetGen','usetetgen','bool',1,'','toggle use TetGen to compute Delaunay tessellation'],
             ['TetGenDetectInter','tetgendetectinter','bool',1,'','TetGen option'],
             ['CostFunction','costfunction','str',1,'','specify cost function to be minimized during centerline computation'],
+            ['OpenProfilesInteractive','openprofilesinteractive','bool',1,'','enable interactive open-profile id selection (requires rendering support); by default openprofiles runs headless and uses sourceids/targetids'],
             ['vmtkRenderer','renderer','vmtkRenderer',1,'','external renderer'],
             ['PoleIds','poleids','vtkIdList',1],
             ['VoronoiDiagram','voronoidiagram','vtkPolyData',1,'','','vmtksurfacewriter'],
@@ -540,7 +596,11 @@ class vmtkCenterlines(pypes.pypeScript):
                 self.PrintLog(nonManifoldChecker.Report)
                 return
 
-        if not self.vmtkRenderer and self.SeedSelectorName in ['pickpoint','openprofiles']:
+        needs_renderer = self.SeedSelectorName == 'pickpoint' or (
+            self.SeedSelectorName == 'openprofiles' and self.OpenProfilesInteractive
+        )
+
+        if not self.vmtkRenderer and needs_renderer:
             if vmtkrenderer is None:
                 self.PrintError('vmtkCenterlines error: rendering-dependent seed selectors are unavailable because rendering is disabled in this build.')
                 return
@@ -585,6 +645,9 @@ class vmtkCenterlines(pypes.pypeScript):
                 self.SeedSelector = vmtkOpenProfilesSeedSelector()
                 self.SeedSelector.vmtkRenderer = self.vmtkRenderer
                 self.SeedSelector.Script = self
+                self.SeedSelector.Interactive = self.OpenProfilesInteractive
+                self.SeedSelector.SourceIds = list(self.SourceIds)
+                self.SeedSelector.TargetIds = list(self.TargetIds)
                 self.SeedSelector.SetSeedIds(surfaceCapper.GetCapCenterIds())
             elif self.SeedSelectorName == 'carotidprofiles':
                 self.SeedSelector = vmtkCarotidProfilesSeedSelector()
